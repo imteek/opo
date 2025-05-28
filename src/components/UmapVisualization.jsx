@@ -1,15 +1,41 @@
+/**
+ * UmapVisualization Component
+ * 
+ * A React component that generates a UMAP (Uniform Manifold Approximation and Projection) 
+ * visualization for kidney transplant data. UMAP is a dimensionality reduction technique 
+ * that helps visualize high-dimensional data in 2D space, showing similarities between kidneys.
+ * 
+ * The component takes a target kidney record and reference data, runs the UMAP algorithm,
+ * and renders an interactive D3 visualization showing how the target kidney relates to 
+ * historical reference kidneys from the same region.
+ */
 import React, { useEffect, useRef, useState } from 'react';
-import { UMAP } from 'umap-js';
-import * as d3 from 'd3';
+import { UMAP } from 'umap-js'; // UMAP implementation for JavaScript
+import * as d3 from 'd3'; // D3 visualization library
 
+/**
+ * @param {Object} targetRecord - The kidney record being analyzed
+ * @param {Array} similarKidneys - Array of kidneys identified as similar to the target
+ * @param {String} selectedModel - The prediction model currently being used (contains city info)
+ */
 const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
+  // Reference to the SVG element for D3 visualization
   const svgRef = useRef(null);
+  // Loading state for visualization generation
   const [isLoading, setIsLoading] = useState(true);
+  // Error state for handling visualization failures
   const [error, setError] = useState(null);
+  // Size of points in the visualization (adjustable by user)
   const [circleRadius, setCircleRadius] = useState(5); // Default radius
+  // Toggle to filter visualization to show only accepted kidneys
   const [showOnlyAccepted, setShowOnlyAccepted] = useState(false);
   
-  // Extract city from model name for display purposes only
+  /**
+   * Extracts city name from the model name for region-specific reference data
+   * 
+   * @param {string} modelName - The name of the prediction model
+   * @returns {string} - The city/region name (Boston, LA, Baltimore)
+   */
   const getCityFromModel = (modelName) => {
     if (modelName.includes('Boston')) return 'Boston';
     if (modelName.includes('LA')) return 'LA';
@@ -17,7 +43,11 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
     return 'Unknown';
   };
   
-  // At the beginning of your component, ensure cityReferenceData is available
+  /**
+   * Effect hook to initialize global reference data if not already available
+   * Checks for cityReferenceData in the window object and tries to load from localStorage
+   * This data is used as the reference dataset for UMAP projections
+   */
   useEffect(() => {
     // Initialize global reference data if it doesn't exist
     if (!window.cityReferenceData) {
@@ -45,7 +75,11 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
     }
   }, []);
   
-  // Generate UMAP with all city reference data
+  /**
+   * Main effect hook to generate the UMAP visualization
+   * Runs when the targetRecord, selectedModel, or similarKidneys change
+   * Handles data preparation, UMAP algorithm execution, and rendering
+   */
   useEffect(() => {
     // Add a check to prevent regenerating if already processed
     const umapGenerationKey = `${selectedModel}-${targetRecord?.id || 'unknown'}`;
@@ -80,6 +114,10 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
       return;
     }
     
+    /**
+     * Asynchronous function to generate the UMAP visualization
+     * Handles data preparation, dimensionality reduction, and rendering
+     */
     const generateUmap = async () => {
       try {
         setIsLoading(true);
@@ -93,13 +131,13 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
           throw new Error(`Not enough data points (${allRecords.length}). Need at least 4.`);
         }
         
-        // Extract numerical features
+        // Extract numerical features that can be used for UMAP calculation
         const numericalFeatures = Object.keys(targetRecord).filter(key => {
           const value = targetRecord[key];
           return typeof value === 'number' || (typeof value === 'string' && !isNaN(parseFloat(value)));
         });
         
-        // Filter out non-informative features
+        // Filter out non-informative features that would skew the visualization
         const filteredFeatures = numericalFeatures.filter(feature => 
           feature !== 'PTR_SEQUENCE_NUM' && 
           feature !== 'OFFER_ACCEPT' &&
@@ -109,7 +147,7 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
         
         console.log('Using features for UMAP:', filteredFeatures.slice(0, 10), '...');
         
-        // Create feature matrix
+        // Create feature matrix - each row is a kidney, each column is a feature
         const featureMatrix = allRecords.map(record => {
           return filteredFeatures.map(feature => {
             const value = record[feature];
@@ -118,7 +156,7 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
           });
         });
         
-        // Standardize the data
+        // Standardize the data to ensure all features have similar influence
         const standardizedData = standardizeData(featureMatrix);
         
         // Run UMAP with adjusted parameters for the dataset
@@ -130,9 +168,10 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
           random: Math.random
         });
         
+        // Generate the 2D embedding
         const embedding = umap.fit(standardizedData);
         
-        // Render the visualization
+        // Render the visualization using D3
         renderVisualization(embedding, allRecords);
         
         setIsLoading(false);
@@ -146,7 +185,14 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
     generateUmap();
   }, [targetRecord, selectedModel, similarKidneys.length]); // Only re-run when these change
   
-  // Function to standardize data (z-score normalization)
+  /**
+   * Standardizes feature data using z-score normalization
+   * Ensures all features have mean 0 and standard deviation 1,
+   * which is important for distance-based algorithms like UMAP
+   * 
+   * @param {Array} data - 2D array of feature values (rows=kidneys, columns=features)
+   * @returns {Array} - Standardized 2D array with the same shape
+   */
   const standardizeData = (data) => {
     const numFeatures = data[0].length;
     const numSamples = data.length;
@@ -155,14 +201,14 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
     const means = Array(numFeatures).fill(0);
     const stds = Array(numFeatures).fill(0);
     
-    // Calculate means
+    // Calculate means for each feature
     for (let i = 0; i < numSamples; i++) {
       for (let j = 0; j < numFeatures; j++) {
         means[j] += data[i][j] / numSamples;
       }
     }
     
-    // Calculate standard deviations
+    // Calculate standard deviations for each feature
     for (let i = 0; i < numSamples; i++) {
       for (let j = 0; j < numFeatures; j++) {
         stds[j] += Math.pow(data[i][j] - means[j], 2) / numSamples;
@@ -171,11 +217,11 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
     
     for (let j = 0; j < numFeatures; j++) {
       stds[j] = Math.sqrt(stds[j]);
-      // Prevent division by zero
+      // Prevent division by zero for constant features
       if (stds[j] === 0) stds[j] = 1;
     }
     
-    // Standardize the data
+    // Apply z-score normalization: (value - mean) / std
     const standardized = data.map(sample => {
       return sample.map((value, j) => (value - means[j]) / stds[j]);
     });
@@ -183,7 +229,13 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
     return standardized;
   };
   
-  // Function to render the visualization using D3
+  /**
+   * Renders the UMAP visualization using D3.js
+   * Creates an interactive scatterplot showing kidney positions in 2D space
+   * 
+   * @param {Array} embedding - 2D array with UMAP coordinates for each kidney
+   * @param {Array} records - Array of kidney records corresponding to the embedding points
+   */
   const renderVisualization = (embedding, records) => {
     if (!svgRef.current) return;
     
@@ -215,34 +267,38 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
       }
     }
     
-    // Create scales based on filtered data
+    // Create scales based on filtered data with padding
     const xExtent = d3.extent(filteredEmbedding, d => d[0]);
     const yExtent = d3.extent(filteredEmbedding, d => d[1]);
     
+    // Create x-axis scale
     const xScale = d3.scaleLinear()
-      .domain([xExtent[0] - 1, xExtent[1] + 1])
+      .domain([xExtent[0] - 1, xExtent[1] + 1]) // Add padding
       .range([margin.left, width - margin.right]);
     
+    // Create y-axis scale
     const yScale = d3.scaleLinear()
-      .domain([yExtent[0] - 1, yExtent[1] + 1])
+      .domain([yExtent[0] - 1, yExtent[1] + 1]) // Add padding
       .range([height - margin.bottom, margin.top]);
     
-    // Add axes
+    // Add x-axis
     svg.append('g')
       .attr('transform', `translate(0,${height - margin.bottom})`)
       .call(d3.axisBottom(xScale));
     
+    // Add y-axis
     svg.append('g')
       .attr('transform', `translate(${margin.left},0)`)
       .call(d3.axisLeft(yScale));
     
-    // Add axis labels
+    // Add x-axis label
     svg.append('text')
       .attr('x', width / 2)
       .attr('y', height - 5)
       .style('text-anchor', 'middle')
       .text('UMAP Dimension 1');
     
+    // Add y-axis label
     svg.append('text')
       .attr('transform', 'rotate(-90)')
       .attr('x', -height / 2)
@@ -250,7 +306,7 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
       .style('text-anchor', 'middle')
       .text('UMAP Dimension 2');
     
-    // Add title with filter status
+    // Add title with filter status and kidney count
     const cityName = getCityFromModel(selectedModel);
     const filterText = showOnlyAccepted ? ' (Accepted Only)' : '';
     svg.append('text')
@@ -261,7 +317,7 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
       .style('font-weight', 'bold')
       .text(`UMAP Projection - ${cityName} Region${filterText} (${filteredRecords.length} kidneys)`);
     
-    // Find similar kidneys in the reference data
+    // Create a set of similar kidney indices for highlighting
     const similarKidneyIndices = new Set();
     if (similarKidneys && similarKidneys.length > 0) {
       // Create a lookup for PTR_SEQUENCE_NUM or other unique identifiers
@@ -275,7 +331,7 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
       });
     }
     
-    // Use circleRadius state instead of hardcoded values
+    // Draw kidney points with dynamic sizing and coloring
     const circles = svg.selectAll('circle')
       .data(filteredEmbedding)
       .enter()
@@ -297,23 +353,23 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
         // ... existing opacity logic ...
       });
     
-    // Plot the target kidney (index 0) on top
+    // Plot the target kidney (index 0) on top with distinct styling
     svg.append('circle')
       .attr('class', 'target')
       .attr('cx', xScale(filteredEmbedding[0][0]))
       .attr('cy', yScale(filteredEmbedding[0][1]))
       .attr('r', circleRadius + 2)
-      .attr('fill', '#1976D2')
+      .attr('fill', '#1976D2') // Blue for target kidney
       .attr('stroke', '#000')
       .attr('stroke-width', 1.5)
       .append('title')
       .text('Target Kidney');
     
-    // Add legend
+    // Add legend to explain the visualization colors
     const legend = svg.append('g')
       .attr('transform', `translate(${width - margin.right - 120}, ${margin.top + 10})`);
     
-    // Target kidney
+    // Target kidney legend item
     legend.append('circle')
       .attr('cx', 10)
       .attr('cy', 10)
@@ -327,7 +383,7 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
       .attr('y', 15)
       .text('Target Kidney');
     
-    // Accepted kidney
+    // Accepted kidney legend item
     legend.append('circle')
       .attr('cx', 10)
       .attr('cy', 35)
@@ -341,7 +397,7 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
     
     // Only show rejected in legend if not filtered
     if (!showOnlyAccepted) {
-      // Rejected kidney
+      // Rejected kidney legend item
       legend.append('circle')
         .attr('cx', 10)
         .attr('cy', 60)
@@ -354,7 +410,7 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
         .text('Rejected');
     }
     
-    // Similar kidney (optional)
+    // Similar kidney legend item (if any similar kidneys exist)
     if (similarKidneyIndices.size > 0) {
       const yOffset = showOnlyAccepted ? 60 : 85;
       legend.append('circle')
@@ -371,7 +427,12 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
     }
   };
   
-  // Function to handle slider changes
+  /**
+   * Handles changes to the circle radius slider
+   * Updates point sizes in the visualization
+   * 
+   * @param {Event} event - The slider change event
+   */
   const handleRadiusChange = (event) => {
     const newRadius = parseInt(event.target.value);
     setCircleRadius(newRadius);
@@ -388,7 +449,10 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
     }
   };
   
-  // Add this function to toggle the filter
+  /**
+   * Toggles the filter to show only accepted kidneys or all kidneys
+   * Triggers re-rendering of the visualization with the new filter
+   */
   const toggleAcceptedFilter = () => {
     setShowOnlyAccepted(!showOnlyAccepted);
   };
@@ -397,23 +461,29 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
     <div className="umap-container">
       <h3>UMAP Visualization</h3>
       
+      {/* Loading state indicator */}
       {isLoading && (
         <div className="loading-umap">
           <p>Generating UMAP visualization...</p>
         </div>
       )}
       
+      {/* Error message display */}
       {error && (
         <div className="umap-error">
           <p>{error}</p>
         </div>
       )}
       
+      {/* UMAP visualization with controls */}
       {!isLoading && !error && (
         <div className="umap-svg-container">
+          {/* SVG element where D3 will render the visualization */}
           <svg ref={svgRef} className="umap-svg"></svg>
           
+          {/* Visualization controls */}
           <div className="umap-controls">
+            {/* Toggle button to filter accepted/rejected kidneys */}
             <button 
               className={`filter-button ${showOnlyAccepted ? 'active' : ''}`}
               onClick={toggleAcceptedFilter}
@@ -421,6 +491,7 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
               {showOnlyAccepted ? 'Show All Kidneys' : 'Show Only Accepted'}
             </button>
             
+            {/* Slider to control point size */}
             <div className="radius-control">
               <label htmlFor="radius-slider">Point Size: </label>
               <input
@@ -436,6 +507,7 @@ const UmapVisualization = ({ targetRecord, similarKidneys, selectedModel }) => {
             </div>
           </div>
           
+          {/* Explanatory text for the visualization */}
           <div className="umap-description">
             <p>
               This UMAP visualization shows how the current kidney (blue) relates to all reference kidneys in this region.

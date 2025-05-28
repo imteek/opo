@@ -1,7 +1,19 @@
+/**
+ * Models.jsx
+ * 
+ * This component provides a comprehensive interface for running, analyzing, and comparing
+ * kidney transplant prediction models. It allows users to:
+ * - Select from uploaded data files
+ * - Run multiple prediction models simultaneously
+ * - Compare prediction results across models
+ * - Find similar kidney profiles for comparison
+ * - Visualize data with interactive charts
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import SimilarKidneysModal from './SimilarKidneysModal';
 
 // Sample model data - in a real app, this would come from your backend
+// These models serve as fallback data if API calls fail
 const sampleModels = [
   {
     id: 1,
@@ -72,36 +84,61 @@ const sampleModels = [
 ];
 
 const Models = () => {
+  // State to store available prediction models fetched from the backend
   const [models, setModels] = useState([]);
+  // State to store files uploaded by the user (loaded from localStorage)
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  // Currently selected file ID for analysis
   const [selectedFile, setSelectedFile] = useState(null);
+  // Loading state for async operations
   const [isLoading, setIsLoading] = useState(false);
+  // Error messages from API calls or data processing
   const [error, setError] = useState(null);
+  // Results from all prediction models
   const [allPredictions, setAllPredictions] = useState([]);
+  // Track missing features required by models but not present in input data
   const [missingFeatures, setMissingFeatures] = useState({});
+  // Parsed data from the selected file
   const [fileData, setFileData] = useState(null);
+  // Similar kidney records found for comparison
   const [similarKidneys, setSimilarKidneys] = useState([]);
+  // Controls visibility of the similar kidneys modal
   const [showSimilarModal, setShowSimilarModal] = useState(false);
+  // Currently selected record for similar kidney comparison
   const [selectedRecord, setSelectedRecord] = useState(null);
+  // Currently selected model for similar kidney comparison
   const [selectedModel, setSelectedModel] = useState(null);
+  // Reference to the modal DOM element for click-outside detection
   const modalRef = useRef(null);
+  // Reference data for each city, loaded on demand
   const [referenceData, setReferenceData] = useState({
     Baltimore: null,
     Boston: null,
     LA: null
   });
+  // Loading state for reference data
   const [loadingReference, setLoadingReference] = useState(false);
+  // Error messages specific to reference data loading
   const [referenceError, setReferenceError] = useState(null);
+  // Track which result sections are expanded to show all records
   const [showAllResults, setShowAllResults] = useState({});
+  // Controls visibility of the details modal
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  // Record to display in the details modal
   const [detailsRecord, setDetailsRecord] = useState(null);
+  // Active tab in the details modal
   const [activeTab, setActiveTab] = useState('city');
+  // Reference to the details modal DOM element
   const detailsModalRef = useRef(null);
+  // Reference records for comparison in details modal
   const [referenceRecords, setReferenceRecords] = useState([]);
+  // Probability values for reference records
   const [referenceProbabilities, setReferenceProbabilities] = useState([]);
+  // Number of top kidneys to display in results
   const [topKidneysCount, setTopKidneysCount] = useState(10);
 
-  // Updated Average KDPI by CTR code
+  // Updated Average KDPI (Kidney Donor Profile Index) by CTR (Center for Transplant Registry) code
+  // These values represent the average KDPI for each transplant center
   const avgKdpiByCtr = {
     '13051': 0.5976591375770022,
     '24552': 0.48170124481327803,
@@ -117,13 +154,15 @@ const Models = () => {
   };
 
   // Updated Average KDPI by City
+  // These values represent the average KDPI for each city region
   const avgKdpiByCity = {
     'LA': 0.5038325991189427,
     'Boston': 0.3300508905852417,
     'Baltimore': 0.45672727272727276
   };
 
-  // Important features for each city
+  // Important features for each city used in similarity calculations
+  // These features have been identified as most significant for each region
   const importantFeatures = {
     'Baltimore': [
       'PTR_SEQUENCE_NUM', 'CREAT_DON', 'DAYSQAIT_ALLOC', 'time_on_analysis', 'KDPI', 
@@ -145,7 +184,8 @@ const Models = () => {
     ]
   };
 
-  // Update the CTR code to city mapping
+  // Mapping from transplant center codes to city names
+  // Used to identify which city a transplant center belongs to
   const ctrCodeToCity = {
     '13051': 'LA',
     '24552': 'LA',
@@ -160,14 +200,21 @@ const Models = () => {
     '24800': 'Baltimore'
   };
 
-  // Alternative format that matches your provided structure
+  // Alternative mapping format from cities to transplant center codes
+  // Used for city-based filtering and grouping
   const cityToCtrCodes = {
     'LA': ['13051', '24552', '23901', '2573'],
     'Boston': ['651', '12958', '13237', '6727', '24335'],
     'Baltimore': ['2666', '24800']
   };
 
-  // Function to get average KDPI for a model
+  /**
+   * Gets the average KDPI value for a model based on its name
+   * Used to display comparative KDPI data in the UI
+   * 
+   * @param {string} modelName - The name of the model to look up
+   * @returns {number|null} - The average KDPI value or null if not found
+   */
   const getAvgKdpiForModel = (modelName) => {
     // Check if it's a baseline model
     if (modelName.includes('Baseline')) {
@@ -187,7 +234,13 @@ const Models = () => {
     return null;
   };
 
-  // Function to get city from model name
+  /**
+   * Extracts the city name from a model name
+   * Used to associate models with specific geographic regions
+   * 
+   * @param {string} modelName - The name of the model to analyze
+   * @returns {string|null} - The extracted city name or null if not found
+   */
   const getCityFromModelName = (modelName) => {
     if (modelName.includes('Baltimore')) return 'Baltimore';
     if (modelName.includes('Boston')) return 'Boston';
@@ -203,7 +256,14 @@ const Models = () => {
     return null;
   };
 
-  // Enhance the getValueCaseInsensitive function to be more robust
+  /**
+   * Enhanced function to retrieve a value from an object with case-insensitive key matching
+   * Helps handle inconsistent case in data fields across different data sources
+   * 
+   * @param {Object} obj - The object to search in
+   * @param {string} key - The key to look for (case-insensitive)
+   * @returns {*} - The value if found, null otherwise
+   */
   const getValueCaseInsensitive = (obj, key) => {
     if (!obj || typeof obj !== 'object') return null;
     
@@ -221,7 +281,15 @@ const Models = () => {
     return null;
   };
 
-  // Function to calculate Euclidean distance
+  /**
+   * Calculates the Euclidean distance between two records based on specified features
+   * Used to find similar kidney records by comparing feature values
+   * 
+   * @param {Object} record1 - First record to compare
+   * @param {Object} record2 - Second record to compare
+   * @param {Array<string>} features - Array of feature names to include in comparison
+   * @returns {number} - The calculated distance (lower values mean more similar)
+   */
   const calculateEuclideanDistance = (record1, record2, features) => {
     let sumSquaredDiff = 0;
     let validFeatureCount = 0;
@@ -260,7 +328,13 @@ const Models = () => {
     return Math.sqrt(sumSquaredDiff / validFeatureCount);
   };
 
-  // Function to load reference data for a city
+  /**
+   * Loads reference data for a specific city from the backend API
+   * Caches the data in state to avoid redundant API calls
+   * 
+   * @param {string} city - The city to load reference data for (Baltimore, Boston, LA)
+   * @returns {Promise<Array|null>} - The reference data or null if an error occurs
+   */
   const loadReferenceData = async (city) => {
     if (referenceData[city]) {
       // Data already loaded
@@ -296,7 +370,14 @@ const Models = () => {
     }
   };
 
-  // Function to find similar kidneys
+  /**
+   * Finds similar kidneys to a selected record using Euclidean distance
+   * Compares the selected kidney with reference data based on important features
+   * 
+   * @param {number} recordId - ID of the record to find similar kidneys for
+   * @param {string} modelName - Name of the model (used to determine city/region)
+   * @returns {Promise<Array>} - Array of similar kidney records with distance metrics
+   */
   const findSimilarKidneys = async (recordId, modelName) => {
     // Get the record from the uploaded data
     if (!fileData || !Array.isArray(fileData) || recordId >= fileData.length) {
@@ -365,7 +446,8 @@ const Models = () => {
       };
     });
     
-    // Sort by distance and take the top 7
+    // Sort by distance and take the top results
+    // Lower distance means more similar
     const sortedDistances = distances
       .filter(d => d.distance !== Infinity)
       .sort((a, b) => a.distance - b.distance)
@@ -516,37 +598,44 @@ const Models = () => {
     setMissingFeatures({});
     
     try {
-      // Find the selected file
+      // Find the selected file object from the uploadedFiles array based on its ID
       const fileObj = uploadedFiles.find(f => f.id.toString() === selectedFile);
       if (!fileObj) {
+        // Throw error if file not found - important for error handling
         throw new Error('Selected file not found');
       }
       
       console.log('Selected file:', fileObj);
       
-      // Get the file data
+      // Extract the actual data from the file object
       let fileData = fileObj.data;
       
-      // Check if data is in the expected format
+      // Handle different data formats - sometimes the data is wrapped in an allRows property
+      // This ensures consistent data structure regardless of source format
       if (fileData.allRows && Array.isArray(fileData.allRows)) {
         fileData = fileData.allRows;
       } else if (!Array.isArray(fileData)) {
+        // Ensure we have an array of records, otherwise the predictions won't work
         throw new Error('Invalid data format. Expected an array of records.');
       }
       
       console.log('File data sample:', fileData.slice(0, 2));
       
-      // Get all available features in the dataset
+      // Extract all feature names from the first record to identify available columns
       const availableFeatures = Object.keys(fileData[0] || {});
       console.log('Available features:', availableFeatures);
       
-      // Remove utilization_probability from required features for all models
+      // Remove 'utilization_probability' from required features for all models
+      // This feature is the prediction target, not an input feature
       const modelsWithoutUtilization = models.map(model => {
         const features = (model.features || []).filter(f => f !== 'utilization_probability');
         return { ...model, features };
       });
       
-      // Separate baseline models and facility models
+      // Categorize models into three types for proper prediction sequence:
+      // 1. Baseline models - provide basic predictions
+      // 2. Facility models - use baseline predictions as inputs
+      // 3. Other models - don't fit into the above categories
       const baselineModels = modelsWithoutUtilization.filter(model => 
         model.name.includes('Baseline') || model.id.includes('baseline')
       );
@@ -564,32 +653,39 @@ const Models = () => {
       console.log('Facility models:', facilityModels);
       console.log('Other models:', otherModels);
       
-      // Run predictions for baseline models first
+      // Store baseline model predictions for later use by facility models
       const baselinePredictions = [];
+      // Track missing features for each model to display to the user
       const missingFeaturesMap = {};
       
-      // Function to run predictions for a model
+      // Inner function to run predictions for a specific model and dataset
+      // This is the core prediction function used for all model types
       const runModelPrediction = async (model, data) => {
         console.log(`Processing model: ${model.name}`);
         
-        // Check if the model has the required features
+        // Get the features required by this model
         const requiredFeatures = model.features || [];
         console.log('Required features:', requiredFeatures);
         
         // Filter out KDRI_MED and KDRI_RAO from required features
+        // These are derived features that can cause issues if missing
         const filteredRequiredFeatures = requiredFeatures.filter(
           feature => feature !== 'KDRI_MED' && feature !== 'KDRI_RAO'
         );
         
-        // For facility models, don't check for baseline_prob features as they'll be added later
+        // For facility models, don't check for baseline_prob features
+        // These will be added later to the enhanced data
         const featuresToCheck = model.name.includes('Facility') || model.id.includes('facility')
           ? filteredRequiredFeatures.filter(f => !f.includes('baseline_prob'))
           : filteredRequiredFeatures;
         
+        // Check if any required features are missing from the data
         const missingModelFeatures = featuresToCheck.filter(
           feature => !Object.keys(data[0]).includes(feature)
         );
         
+        // If there are missing features, log them and return null
+        // This model will be skipped in predictions
         if (missingModelFeatures.length > 0) {
           console.log('Missing features for model:', missingModelFeatures);
           missingFeaturesMap[model.id] = missingModelFeatures;
@@ -597,7 +693,7 @@ const Models = () => {
         }
         
         try {
-          // Get the city for this model
+          // Determine which city/region this model is for
           const city = getCityFromModelName(model.name);
           if (!city) {
             console.error(`Could not determine city for model: ${model.name}`);
@@ -605,9 +701,11 @@ const Models = () => {
           }
           
           // Load reference data for this city if not already loaded
+          // Reference data contains real-world transplant records for comparison
           let cityReferenceData = referenceData[city];
           if (!cityReferenceData) {
             try {
+              // Fetch reference data from the backend API
               const response = await fetch(`http://localhost:5001/api/reference-data/${city}`);
               
               if (!response.ok) {
@@ -617,7 +715,7 @@ const Models = () => {
               cityReferenceData = await response.json();
               console.log(`Loaded ${cityReferenceData.length} reference records for ${city}`);
               
-              // Update the reference data state
+              // Cache the reference data in state to avoid refetching
               setReferenceData(prev => ({
                 ...prev,
                 [city]: cityReferenceData
@@ -629,6 +727,7 @@ const Models = () => {
             }
           }
           
+          // Ensure reference data was successfully loaded
           if (!cityReferenceData || cityReferenceData.length === 0) {
             console.error(`No reference data available for ${city}`);
             return null;
@@ -640,46 +739,49 @@ const Models = () => {
           for (let recordIndex = 0; recordIndex < data.length; recordIndex++) {
             const record = data[recordIndex];
             
-            // Process in batches of 10 to avoid overwhelming the server
-            const totalReferences = 10; // Changed from 10 to 30
-            const batchSize = 10;
+            // Process in batches to avoid overwhelming the server
+            // Create multiple hybrid records for each input record
+            const totalReferences = 10; // Number of reference records to use per input record
+            const batchSize = 10; // Maximum records per API call
             const numBatches = Math.ceil(totalReferences / batchSize);
             
-            // Array to store all probabilities for this record
+            // Array to store all probability results
             let allProbabilities = [];
             
             // Track used indices to avoid duplicates
             const usedIndices = new Set();
             
-            // Process in batches
+            // Process in batches for better performance and reliability
             for (let batchIndex = 0; batchIndex < numBatches; batchIndex++) {
-              // Create a batch of hybrid records
+              // Create a batch of hybrid records by combining input data with reference data
               const hybridRecordsBatch = [];
               
               // Calculate how many records to create for this batch
               const recordsToCreate = Math.min(batchSize, totalReferences - (batchIndex * batchSize));
               
-              // Create hybrid records for this batch
+              // Create hybrid records for this batch by randomly selecting reference records
               while (hybridRecordsBatch.length < recordsToCreate) {
                 // Get a random reference record that hasn't been used yet
                 const randomIndex = Math.floor(Math.random() * cityReferenceData.length);
                 
-                // Only use this record if we haven't used this index before
+                // Only use this record if we haven't used this index before (avoid duplicates)
                 if (!usedIndices.has(randomIndex)) {
                   usedIndices.add(randomIndex);
                   const referenceRecord = cityReferenceData[randomIndex];
                   
                   // Create hybrid record: start with reference record, override with donor features
+                  // This simulates placing the input kidney in different recipient scenarios
                   const hybridRecord = { ...referenceRecord };
                   
-                  // Add donor features from the uploaded kidney
+                  // Add donor features from the uploaded kidney to the reference record
+                  // This preserves the donor characteristics while using different recipient data
                   Object.keys(record).forEach(key => {
                     if (key.endsWith('_DON')) {
                       hybridRecord[key] = record[key];
                     }
                   });
                   
-                  // Filter to only include required features
+                  // Filter to only include required features to reduce data size
                   const filteredRecord = {};
                   filteredRequiredFeatures.forEach(feature => {
                     if (feature in hybridRecord) {
@@ -693,10 +795,11 @@ const Models = () => {
                 }
               }
               
-              // Send this batch of hybrid records to the model
+              // Send this batch of hybrid records to the model API for prediction
               try {
                 console.log(`Sending batch ${batchIndex + 1}/${numBatches} (${hybridRecordsBatch.length} records) for record ${recordIndex}`);
                 
+                // Make API call to backend prediction service
                 const response = await fetch(`http://localhost:5001/api/predict/${model.id}`, {
                   method: 'POST',
                   headers: {
@@ -711,22 +814,24 @@ const Models = () => {
                 
                 const result = await response.json();
                 
-                // Add probabilities from this batch to our collection
+                // Extract and store probability values from API response
                 if (result && result.results && result.results.length > 0) {
                   const batchProbabilities = result.results.map(res => res.probability);
                   allProbabilities = [...allProbabilities, ...batchProbabilities];
                 }
               } catch (error) {
                 console.error(`Error predicting batch ${batchIndex + 1} for record ${recordIndex}:`, error);
-                // Continue with next batch
+                // Continue with next batch even if this one failed
               }
             }
             
             // Calculate average probability across all batches for this record
+            // This represents the overall utilization probability across different scenarios
             if (allProbabilities.length > 0) {
               const sum = allProbabilities.reduce((acc, prob) => acc + prob, 0);
               const avgProb = sum / allProbabilities.length;
               
+              // Store the result for this record
               allResults.push({
                 id: recordIndex,
                 probability: avgProb
@@ -734,7 +839,7 @@ const Models = () => {
               
               console.log(`Record ${recordIndex}: Processed ${allProbabilities.length} reference organs, avg probability: ${avgProb}`);
             } else {
-              // No valid probabilities for this record
+              // Handle case where no valid probabilities were obtained
               allResults.push({
                 id: recordIndex,
                 probability: 0
@@ -744,12 +849,14 @@ const Models = () => {
             }
           }
           
-          // Calculate overall average probability
+          // Calculate overall average probability across all records
+          // This represents the model's overall prediction for the entire dataset
           const avgProbability = allResults.reduce(
             (sum, item) => sum + item.probability, 
             0
           ) / allResults.length;
           
+          // Return complete prediction results for this model
           return {
             modelId: model.id,
             modelName: model.name,
@@ -764,7 +871,8 @@ const Models = () => {
         }
       };
       
-      // Run baseline models first
+      // Step 1: Run baseline models first
+      // These models provide initial probability estimates
       for (const model of baselineModels) {
         const prediction = await runModelPrediction(model, fileData);
         if (prediction) {
@@ -774,17 +882,20 @@ const Models = () => {
       
       console.log('Baseline predictions:', baselinePredictions);
       
-      // Prepare data for facility models by adding baseline_prob
+      // Step 2: Prepare enhanced data for facility models by adding baseline probabilities
+      // Facility models use baseline predictions as input features
       const enhancedData = fileData.map((record, index) => {
         const enhancedRecord = { ...record };
         
         // Add baseline probabilities from corresponding baseline models
+        // Match each baseline model to its appropriate city
         baselinePredictions.forEach(prediction => {
           const area = prediction.modelName.includes('Boston') ? 'Boston' : 
                       prediction.modelName.includes('LA') ? 'LA' : 
                       prediction.modelName.includes('Baltimore') ? 'Baltimore' : '';
           
           if (area && index < prediction.results.length) {
+            // Add city-specific baseline probability
             enhancedRecord[`${area}_baseline_prob`] = prediction.results[index].probability;
             // Also add a generic baseline_prob for backward compatibility
             enhancedRecord['baseline_prob'] = prediction.results[index].probability;
@@ -796,11 +907,12 @@ const Models = () => {
       
       console.log('Enhanced data with baseline probabilities:', enhancedData.slice(0, 2));
       
-      // Run facility models with enhanced data
+      // Step 3: Run facility models with enhanced data
+      // These models use both original features and baseline probabilities
       const facilityPredictions = [];
       
       for (const model of facilityModels) {
-        // Determine which baseline probability to use
+        // Determine which baseline probability to use based on the facility's location
         let baselineProbField = 'baseline_prob';
         
         if (model.name.includes('Boston')) {
@@ -812,6 +924,7 @@ const Models = () => {
         }
         
         // Create a copy of the model with updated feature requirements
+        // This ensures the model uses the correct city-specific baseline probability
         const updatedModel = { 
           ...model,
           features: (model.features || []).map(f => 
@@ -827,7 +940,7 @@ const Models = () => {
       
       console.log('Facility predictions:', facilityPredictions);
       
-      // Run other models
+      // Step 4: Run any other models that don't fit into the baseline/facility categories
       const otherPredictions = [];
       
       for (const model of otherModels) {
@@ -837,35 +950,46 @@ const Models = () => {
         }
       }
       
-      // Combine all predictions
+      // Step 5: Combine all predictions from all model types
       const allModelPredictions = [
         ...baselinePredictions,
         ...facilityPredictions,
         ...otherPredictions
       ];
       
-      // Sort predictions by average probability (highest first)
+      // Sort predictions by average probability (highest first) for display
       const sortedPredictions = allModelPredictions.sort(
         (a, b) => b.avgProbability - a.avgProbability
       );
       
       console.log('All predictions:', sortedPredictions);
+      
+      // Update state with all prediction results and missing features
       setAllPredictions(sortedPredictions);
       setMissingFeatures(missingFeaturesMap);
       
+      // Display appropriate error messages if no predictions could be generated
       if (sortedPredictions.length === 0 && Object.keys(missingFeaturesMap).length > 0) {
         setError('None of the models could be used with this data due to missing features.');
       } else if (sortedPredictions.length === 0) {
         setError('No predictions could be generated. Please check the console for details.');
       }
     } catch (error) {
+      // Handle any unexpected errors during the prediction process
       console.error('Prediction error:', error);
       setError(error.message || 'An error occurred during prediction');
     } finally {
+      // Always reset loading state when done, regardless of success or failure
       setIsLoading(false);
     }
   };
 
+  /**
+   * Scrolls the view to a specific model's detailed results section
+   * Used when clicking "View Details" in the summary table
+   * 
+   * @param {string} modelId - ID of the model to scroll to
+   */
   const scrollToModelDetails = (modelId) => {
     const element = document.getElementById(`model-details-${modelId}`);
     if (element) {
@@ -873,7 +997,13 @@ const Models = () => {
     }
   };
 
-  // Function to get KDPI value from file data
+  /**
+   * Extracts the KDPI (Kidney Donor Profile Index) value from a record
+   * Handles different possible formats and casing of the KDPI field
+   * 
+   * @param {number} recordId - ID of the record to get KDPI from
+   * @returns {string} - The KDPI value or 'N/A' if not found
+   */
   const getKdpiFromData = (recordId) => {
     if (!fileData || !Array.isArray(fileData) || recordId >= fileData.length) {
       console.log('No file data available or invalid record ID:', recordId);
@@ -905,16 +1035,28 @@ const Models = () => {
     return 'N/A';
   };
 
-  // Function to format KDPI value
+  /**
+   * Formats a KDPI value for display
+   * Ensures consistent formatting with 5 decimal places
+   * 
+   * @param {number} kdpi - KDPI value to format
+   * @returns {string} - Formatted KDPI value or 'N/A' if null/undefined
+   */
   const formatKdpi = (kdpi) => {
     if (kdpi === null || kdpi === undefined) return 'N/A';
-    return kdpi.toFixed(5); // Display as decimal with 3 decimal places
+    return kdpi.toFixed(5); // Display as decimal with 5 decimal places
   };
 
-  // Update the displayPredictions to include baseline models
-  const displayPredictions = allPredictions;  // Remove the filter that excludes baseline models
+  // This variable holds all predictions without filtering out baseline models
+  // Previous versions may have excluded baseline models from display
+  const displayPredictions = allPredictions;
 
-  // Add this function if it doesn't exist
+  /**
+   * Displays all features for a specific kidney record in an alert dialog
+   * Provides a quick way to inspect record details
+   * 
+   * @param {number} recordId - ID of the record to show features for
+   */
   const handleShowFeatures = (recordId) => {
     if (!fileData || recordId >= fileData.length) {
       console.log('No file data available or invalid record ID:', recordId);
@@ -939,6 +1081,12 @@ const Models = () => {
     // in a more user-friendly way
   };
 
+  /**
+   * Toggles the expanded/collapsed state of a model's results table
+   * Controls whether all records are shown or just the top ones
+   * 
+   * @param {string} modelId - ID of the model to toggle results for
+   */
   const toggleShowAllResults = (modelId) => {
     setShowAllResults(prev => ({
       ...prev,
@@ -1356,7 +1504,9 @@ const Models = () => {
   };
 
   return (
+    // Main container for the entire Models component
     <div className="models-container">
+      {/* Header section with title and description */}
       <header>
         <div className="header-content">
           <h1>Predictive Models</h1>
@@ -1364,13 +1514,16 @@ const Models = () => {
         </div>
       </header>
 
+      {/* Error message display - only shown when an error occurs */}
       {error && (
         <div className="error-message">
           <i className="fas fa-exclamation-circle"></i> {error}
         </div>
       )}
       
+      {/* Main prediction control panel */}
       <div className="prediction-panel">
+        {/* File selection dropdown and run button */}
         <div className="file-selection">
           <div className="form-group">
             <label htmlFor="file-select">Select Data File:</label>
@@ -1381,6 +1534,7 @@ const Models = () => {
               className="file-select"
             >
               <option value="">-- Select a file --</option>
+              {/* Dynamically generate options from uploaded files */}
               {uploadedFiles.map(file => (
                 <option key={file.id} value={file.id}>
                   {file.name}
@@ -1388,16 +1542,19 @@ const Models = () => {
               ))}
             </select>
           </div>
+          {/* Run predictions button with loading indicator */}
           <button 
             className="run-all-btn" 
             onClick={runAllPredictions}
             disabled={!selectedFile || isLoading}
           >
             {isLoading ? (
+              // Loading spinner shown during prediction processing
               <>
                 <i className="fas fa-spinner fa-spin"></i> Processing...
               </>
             ) : (
+              // Default button state
               <>
                 <i className="fas fa-play-circle"></i> Run All Models
               </>
@@ -1405,10 +1562,12 @@ const Models = () => {
           </button>
         </div>
         
+        {/* Results section - only shown when predictions exist */}
         {allPredictions.length > 0 && (
           <div className="all-predictions">
             <h2>Model Predictions Ranked by Probability</h2>
             
+            {/* Summary table of all model predictions */}
             <div className="predictions-table-container">
               <table className="predictions-table">
                 <thead>
@@ -1423,14 +1582,19 @@ const Models = () => {
                   </tr>
                 </thead>
                 <tbody>
+                  {/* Map through all predictions to create rows */}
                   {displayPredictions.map((prediction, index) => (
                     <tr key={prediction.modelId} className={prediction.modelName.toLowerCase().includes('baseline') ? 'baseline-model-row' : ''}>
                       <td>{index + 1}</td>
                       <td>{prediction.modelName}</td>
+                      {/* Determine if this is a baseline or augmented model */}
                       <td>{prediction.modelName.toLowerCase().includes('baseline') ? 'Baseline' : 'Augmented'}</td>
+                      {/* Display KDPI for the first result or N/A if none */}
                       <td>{prediction.results && prediction.results.length > 0 ? 
                           getKdpiFromData(prediction.results[0].id) : 'N/A'}</td>
+                      {/* Show average KDPI for this model's center */}
                       <td>{formatKdpi(getAvgKdpiForModel(prediction.modelName))}</td>
+                      {/* Visual probability bar with percentage */}
                       <td>
                         <div className="probability-bar-container">
                           <div 
@@ -1441,6 +1605,7 @@ const Models = () => {
                           </div>
                         </div>
                       </td>
+                      {/* Button to jump to detailed results section */}
                       <td>
                         <button 
                           className="details-btn"
@@ -1455,8 +1620,10 @@ const Models = () => {
               </table>
             </div>
             
+            {/* Detailed results section for each model */}
             <div className="detailed-results">
               <h2>Detailed Results</h2>
+              {/* Map through each prediction to create detailed card */}
               {displayPredictions.map((prediction) => (
                 <div 
                   key={prediction.modelId} 
@@ -1467,6 +1634,7 @@ const Models = () => {
                   <p>Average Probability: <strong>{(prediction.avgProbability * 100).toFixed(2)}%</strong></p>
                   <p>Model Type: <strong>{prediction.modelName.toLowerCase().includes('baseline') ? 'Baseline' : 'Augmented'}</strong></p>
                   
+                  {/* Table of individual prediction results */}
                   <div className="results-table-container">
                     <table className="results-table">
                       <thead>
@@ -1478,11 +1646,13 @@ const Models = () => {
                         </tr>
                       </thead>
                       <tbody>
+                        {/* Show only top 10 results unless expanded */}
                         {prediction.results.slice(0, showAllResults[prediction.modelId] ? prediction.results.length : 10).map(result => (
                           <tr key={result.id}>
                             <td>{result.id}</td>
                             <td>{(result.probability * 100).toFixed(2)}%</td>
                             <td>
+                              {/* Button to find similar kidneys */}
                               <button 
                                 className="action-btn similar-btn"
                                 onClick={() => handleFindSimilar(result.id, prediction.modelName)}
@@ -1491,6 +1661,7 @@ const Models = () => {
                               </button>
                             </td>
                             <td>
+                              {/* Button to show detailed analysis modal */}
                               <button 
                                 className="action-btn info-btn"
                                 onClick={() => handleShowMoreInfo(result.id, prediction.modelId)}
@@ -1514,6 +1685,7 @@ const Models = () => {
                             </td>
                           </tr>
                         ))}
+                        {/* "View All" button - shown when results are collapsed and there are more than 10 */}
                         {prediction.results.length > 10 && !showAllResults[prediction.modelId] && (
                           <tr>
                             <td colSpan="4" className="more-results">
@@ -1526,6 +1698,7 @@ const Models = () => {
                             </td>
                           </tr>
                         )}
+                        {/* "Collapse View" button - shown when results are expanded */}
                         {prediction.results.length > 10 && showAllResults[prediction.modelId] && (
                           <tr>
                             <td colSpan="4" className="more-results">
@@ -1547,12 +1720,14 @@ const Models = () => {
           </div>
         )}
         
+        {/* Missing features section - shows which models couldn't be used due to missing data */}
         {Object.keys(missingFeatures).length > 0 && (
           <div className="missing-features-section">
             <h3>Models with Missing Features</h3>
             <p>The following models couldn't be used because the selected data is missing required features:</p>
             
             <div className="missing-features-list">
+              {/* List each model and its missing features */}
               {Object.entries(missingFeatures).map(([modelId, features]) => {
                 const model = models.find(m => m.id === modelId);
                 return (
@@ -1571,6 +1746,7 @@ const Models = () => {
           </div>
         )}
         
+        {/* Empty state message shown when no files are available */}
         {!selectedFile && uploadedFiles.length === 0 && (
           <div className="no-files-message">
             <i className="fas fa-file-upload"></i>
@@ -1586,9 +1762,11 @@ const Models = () => {
         )}
       </div>
       
+      {/* Models list section - displays all available models */}
       <div className="models-list-section">
         <h2>Available Models ({models.length})</h2>
         <div className="models-grid">
+          {/* Create a card for each model */}
           {models.map(model => (
             <div key={model.id} className="model-card">
               <div className="model-card-header">
@@ -1608,6 +1786,7 @@ const Models = () => {
                   <span className="meta-value">{(model.features || []).filter(f => f !== 'utilization_probability').length}</span>
                 </div>
               </div>
+              {/* Display a preview of model features */}
               <div className="model-features-preview">
                 {(model.features || [])
                   .filter(f => f !== 'utilization_probability')
@@ -1615,6 +1794,7 @@ const Models = () => {
                   .map(feature => (
                     <span key={feature} className="feature-tag">{feature}</span>
                   ))}
+                {/* Show count of additional features if more than 3 */}
                 {(model.features || []).filter(f => f !== 'utilization_probability').length > 3 && (
                   <span className="more-features">+{(model.features || []).filter(f => f !== 'utilization_probability').length - 3} more</span>
                 )}
@@ -1624,7 +1804,7 @@ const Models = () => {
         </div>
       </div>
       
-      {/* Use the new modal component */}
+      {/* Similar kidneys modal component */}
         <SimilarKidneysModal
           show={showSimilarModal}
           onClose={closeModal}
@@ -1637,6 +1817,7 @@ const Models = () => {
           getCityFromModelName={getCityFromModelName}
         />
 
+      {/* Detailed analysis modal - conditionally rendered when showDetailsModal is true */}
       {showDetailsModal && detailsRecord && (
         <div className="modal-overlay" style={{
           position: 'fixed',
@@ -1650,6 +1831,7 @@ const Models = () => {
           alignItems: 'center',
           zIndex: 1000
         }}>
+          {/* Modal container with ref for click-outside detection */}
           <div 
             ref={detailsModalRef}
             className="modal-container" 
@@ -1665,6 +1847,7 @@ const Models = () => {
               flexDirection: 'column'
             }}
           >
+            {/* Modal header with title and close button */}
             <div className="modal-header" style={{
               padding: '15px 20px',
               borderBottom: '1px solid #eaeaea',
@@ -1687,11 +1870,13 @@ const Models = () => {
               </button>
             </div>
             
+            {/* Modal tabs for navigation between content sections */}
             <div className="modal-tabs" style={{
               display: 'flex',
               borderBottom: '1px solid #eaeaea',
               backgroundColor: '#f9f9f9'
             }}>
+              {/* City information tab */}
               <button 
                 onClick={() => setActiveTab('city')}
                 style={{
@@ -1706,6 +1891,7 @@ const Models = () => {
               >
                 City Information
               </button>
+              {/* Reference records tab */}
               <button 
                 onClick={() => setActiveTab('reference')}
                 style={{
@@ -1722,13 +1908,16 @@ const Models = () => {
               </button>
             </div>
             
+            {/* Modal content area - changes based on active tab */}
             <div className="modal-content" style={{ 
               padding: '20px',
               overflowY: 'auto',
               maxHeight: 'calc(80vh - 120px)'
             }}>
+              {/* City information tab content */}
               {activeTab === 'city' && (
                 <div className="city-info">
+                  {/* Kidney origin information card */}
                   <div style={{
                     backgroundColor: '#f0f7ff',
                     borderRadius: '6px',
@@ -1738,6 +1927,7 @@ const Models = () => {
                   }}>
                     <h4 style={{ margin: '0 0 15px 0', color: '#2c3e50' }}>Kidney Origin</h4>
                     
+                    {/* Show transplant center info if available */}
                     {detailsRecord.LISTING_CTR_CODE ? (
                       <>
                         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
@@ -1762,6 +1952,7 @@ const Models = () => {
                     )}
                   </div>
                   
+                  {/* Additional city-specific information */}
                   <div style={{
                     backgroundColor: '#f9f9f9',
                     borderRadius: '6px',
@@ -1777,8 +1968,10 @@ const Models = () => {
                 </div>
               )}
               
+              {/* Reference records tab content */}
               {activeTab === 'reference' && (
                 <div className="reference-info">
+                  {/* Reference records information card */}
                   <div style={{
                     backgroundColor: '#f0f7ff',
                     borderRadius: '6px',
@@ -1788,13 +1981,14 @@ const Models = () => {
                   }}>
                     <h4 style={{ margin: '0 0 15px 0', color: '#2c3e50' }}>Reference Records</h4>
                     
-                    
+                    {/* Grid of reference record cards */}
                     <div style={{ 
                       display: 'grid', 
                       gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
                       gap: '10px',
                       marginBottom: '20px'
                     }}>
+                      {/* Create a card for each reference record */}
                       {referenceRecords.map((record, index) => (
                         <div key={index} style={{
                           backgroundColor: '#fff',
@@ -1835,6 +2029,7 @@ const Models = () => {
                       ))}
                     </div>
                     
+                    {/* Probability distribution chart section */}
                     <h4 style={{ margin: '20px 0 15px 0', color: '#2c3e50' }}>Probability Distribution</h4>
                     <div style={{
                       backgroundColor: '#fff',
@@ -1844,6 +2039,7 @@ const Models = () => {
                       boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                       marginBottom: '15px'
                     }}>
+                      {/* Canvas for the probability chart */}
                       <canvas 
                         id="probability-chart" 
                         width="800" 
@@ -1853,6 +2049,7 @@ const Models = () => {
                     </div>
                   </div>
                   
+                  {/* Explanatory information about reference records */}
                   <div style={{
                     backgroundColor: '#f9f9f9',
                     borderRadius: '6px',
@@ -1881,6 +2078,10 @@ export default Models;
 
 <style>
 {`
+  /* 
+   * Styles for the probability text display in probability bars
+   * Makes the text visible regardless of bar color/length
+   */
   .probability-text {
     color: #000000;
     font-weight: bold;
@@ -1889,6 +2090,10 @@ export default Models;
     left: 5px;
   }
   
+  /* 
+   * Styles for the colored probability bar itself
+   * Creates a visual representation of probability percentages
+   */
   .probability-bar {
     background-color: #4CAF50;
     height: 100%;
@@ -1899,6 +2104,10 @@ export default Models;
     min-width: 40px;
   }
   
+  /* 
+   * Container for the probability bar to ensure consistent sizing
+   * Provides the gray background for the bar
+   */
   .probability-bar-container {
     width: 100%;
     background-color: #f1f1f1;
@@ -1907,6 +2116,10 @@ export default Models;
     position: relative;
   }
   
+  /* 
+   * Shared styles for action buttons (Find Similar, Features)
+   * Creates consistent look for interactive elements
+   */
   .action-btn {
     padding: 4px 8px;
     border-radius: 4px;
@@ -1919,41 +2132,49 @@ export default Models;
     transition: all 0.2s;
   }
   
+  /* Ensures consistent spacing between icon and text in buttons */
   .action-btn i {
     margin-right: 4px;
   }
   
+  /* Specific styling for the "Find Similar" button */
   .similar-btn {
     background-color: #3498db;
     color: white;
   }
   
+  /* Hover effect for the Find Similar button */
   .similar-btn:hover {
     background-color: #2980b9;
   }
   
+  /* Specific styling for the Features button */
   .features-btn {
     background-color: #9b59b6;
     color: white;
   }
   
+  /* Hover effect for the Features button */
   .features-btn:hover {
     background-color: #8e44ad;
   }
   
-  /* Center all column headings and entries in detailed results */
+  /* 
+   * Table styling for detailed results section
+   * Centers all content in table cells for better readability
+   */
   .model-prediction-details th,
   .model-prediction-details td {
     text-align: center;
     vertical-align: middle;
   }
   
-  /* Make sure buttons remain centered */
+  /* Ensures buttons remain centered in table cells */
   .model-prediction-details td .action-btn {
     margin: 0 auto;
   }
   
-  /* Ensure the more results row is centered */
+  /* Styling for the "View All/Collapse" row */
   .more-results {
     text-align: center;
     font-style: italic;
@@ -1961,14 +2182,17 @@ export default Models;
     padding: 8px 0;
   }
   
-  /* Center text in the predictions table */
+  /* Center text in the main predictions summary table */
   .predictions-table th,
   .predictions-table td {
     text-align: center;
     vertical-align: middle;
   }
   
-  /* Modal styles */
+  /*
+   * Modal styles for popups like the Similar Kidneys modal
+   * Creates a semi-transparent overlay over the entire page
+   */
   .modal-overlay {
     position: fixed;
     top: 0;
@@ -1983,6 +2207,10 @@ export default Models;
     padding: 20px;
   }
   
+  /* 
+   * Styles for the modal window itself
+   * Creates a clean white container with rounded corners
+   */
   .similar-modal {
     background-color: white;
     border-radius: 12px;
@@ -1995,6 +2223,7 @@ export default Models;
     animation: modalFadeIn 0.3s ease-out;
   }
 
+  /* Animation for modal entrance */
   @keyframes modalFadeIn {
     from {
       opacity: 0;
@@ -2006,6 +2235,7 @@ export default Models;
     }
   }
   
+  /* Styles for the modal header section */
   .modal-header {
     display: flex;
     justify-content: space-between;
@@ -2020,6 +2250,7 @@ export default Models;
     border-top-right-radius: 12px;
   }
   
+  /* Title styling in modal header */
   .modal-header h2 {
     margin: 0;
     color: #333;
@@ -2027,6 +2258,7 @@ export default Models;
     font-weight: 600;
   }
   
+  /* Close button in modal header */
   .close-btn {
     background: none;
     border: none;
@@ -2042,15 +2274,18 @@ export default Models;
     transition: background-color 0.2s;
   }
   
+  /* Hover effect for close button */
   .close-btn:hover {
     background-color: #f5f5f5;
     color: #333;
   }
   
+  /* Content area within modal */
   .modal-content {
     padding: 24px;
   }
   
+  /* Loading indicator for async operations */
   .loading-indicator {
     display: flex;
     justify-content: center;
@@ -2060,12 +2295,14 @@ export default Models;
     color: #666;
   }
   
+  /* Spinner icon in loading indicator */
   .loading-indicator i {
     margin-right: 12px;
     color: #3498db;
     font-size: 24px;
   }
   
+  /* Error message display */
   .error-message {
     background-color: #ffebee;
     color: #d32f2f;
@@ -2076,11 +2313,13 @@ export default Models;
     align-items: center;
   }
   
+  /* Error icon in error message */
   .error-message i {
     margin-right: 12px;
     font-size: 20px;
   }
   
+  /* Container for displaying the current kidney's details */
   .current-kidney {
     background-color: #f8f9fa;
     border-radius: 8px;
@@ -2088,6 +2327,7 @@ export default Models;
     margin-bottom: 24px;
   }
   
+  /* Section title in current kidney details */
   .current-kidney h3 {
     margin-top: 0;
     margin-bottom: 16px;
@@ -2096,25 +2336,30 @@ export default Models;
     font-weight: 600;
   }
   
+  /* Layout for kidney details information */
   .kidney-details {
     display: flex;
     flex-wrap: wrap;
     gap: 24px;
   }
   
+  /* Text in kidney details */
   .kidney-details p {
     margin: 8px 0;
     font-size: 15px;
   }
   
+  /* Bold text in kidney details */
   .kidney-details strong {
     color: #555;
   }
   
+  /* Container for similar kidneys results */
   .similar-kidneys-container {
     margin-top: 20px;
   }
   
+  /* Section title in similar kidneys container */
   .similar-kidneys-container h3 {
     margin-top: 0;
     margin-bottom: 16px;
@@ -2123,6 +2368,7 @@ export default Models;
     font-weight: 600;
   }
   
+  /* Summary of acceptance statistics */
   .acceptance-summary {
     margin-bottom: 20px;
     font-size: 16px;
@@ -2132,10 +2378,12 @@ export default Models;
     color: #0d47a1;
   }
   
+  /* Bold text in acceptance summary */
   .acceptance-summary strong {
     font-weight: 600;
   }
   
+  /* Container for the similar kidneys table */
   .similar-kidneys-table-container {
     margin-bottom: 24px;
     overflow-x: auto;
@@ -2143,6 +2391,7 @@ export default Models;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
   
+  /* Table for displaying similar kidneys */
   .similar-kidneys-table {
     width: 100%;
     border-collapse: collapse;
@@ -2150,12 +2399,14 @@ export default Models;
     overflow: hidden;
   }
   
+  /* Table cells in similar kidneys table */
   .similar-kidneys-table th,
   .similar-kidneys-table td {
     padding: 14px 16px;
     text-align: center;
   }
   
+  /* Table header in similar kidneys table */
   .similar-kidneys-table th {
     background-color: #f5f5f5;
     font-weight: 600;
@@ -2165,26 +2416,32 @@ export default Models;
     letter-spacing: 0.5px;
   }
   
+  /* Table rows in similar kidneys table */
   .similar-kidneys-table tr {
     border-bottom: 1px solid #eee;
   }
   
+  /* Remove border from last row */
   .similar-kidneys-table tr:last-child {
     border-bottom: none;
   }
   
+  /* Highlight for accepted kidney rows */
   .similar-kidneys-table tr.accepted {
     background-color: rgba(76, 175, 80, 0.08);
   }
   
+  /* Highlight for rejected kidney rows */
   .similar-kidneys-table tr.rejected {
     background-color: rgba(244, 67, 54, 0.08);
   }
   
+  /* Hover effect for table rows */
   .similar-kidneys-table tr:hover {
     background-color: rgba(0, 0, 0, 0.02);
   }
   
+  /* Badge for showing outcome status */
   .outcome-badge {
     display: inline-block;
     padding: 6px 10px;
@@ -2195,20 +2452,24 @@ export default Models;
     letter-spacing: 0.5px;
   }
   
+  /* Success outcome badge (accepted) */
   .outcome-badge.success {
     background-color: #4CAF50;
     color: white;
   }
   
+  /* Failure outcome badge (rejected) */
   .outcome-badge.failure {
     background-color: #F44336;
     color: white;
   }
   
+  /* Feature comparison section */
   .feature-comparison {
     margin-top: 30px;
   }
   
+  /* Section title in feature comparison */
   .feature-comparison h3 {
     margin-top: 0;
     margin-bottom: 16px;
@@ -2217,12 +2478,14 @@ export default Models;
     font-weight: 600;
   }
   
+  /* Container for feature comparison table */
   .feature-comparison-table-container {
     overflow-x: auto;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
   
+  /* Table for feature comparison */
   .feature-comparison-table {
     width: 100%;
     border-collapse: collapse;
@@ -2230,12 +2493,14 @@ export default Models;
     overflow: hidden;
   }
   
+  /* Table cells in feature comparison */
   .feature-comparison-table th,
   .feature-comparison-table td {
     padding: 14px 16px;
     text-align: left;
   }
   
+  /* Table header in feature comparison */
   .feature-comparison-table th {
     background-color: #f5f5f5;
     font-weight: 600;
@@ -2245,18 +2510,22 @@ export default Models;
     letter-spacing: 0.5px;
   }
   
+  /* Table rows in feature comparison */
   .feature-comparison-table tr {
     border-bottom: 1px solid #eee;
   }
   
+  /* Remove border from last row */
   .feature-comparison-table tr:last-child {
     border-bottom: none;
   }
   
+  /* Hover effect for table rows */
   .feature-comparison-table tr:hover {
     background-color: rgba(0, 0, 0, 0.02);
   }
   
+  /* Empty state for no results */
   .no-results {
     padding: 40px;
     text-align: center;
@@ -2266,11 +2535,13 @@ export default Models;
     margin-top: 20px;
   }
   
+  /* Text in empty state */
   .no-results p {
     font-size: 16px;
     margin: 0;
   }
   
+  /* Info button styling */
   .info-btn {
     background-color: #3498db;
     color: white;
@@ -2286,15 +2557,18 @@ export default Models;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
   
+  /* Hover effect for info button */
   .info-btn:hover {
     background-color: #2980b9;
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
   }
   
+  /* Icon in info button */
   .info-btn i {
     margin-right: 5px;
   }
   
+  /* Controls for filtering results */
   .filter-controls {
     margin: 10px 0;
     padding: 8px;
@@ -2304,6 +2578,7 @@ export default Models;
     align-items: center;
   }
   
+  /* Input for specifying number of top kidneys to show */
   .top-kidneys-input {
     width: 60px;
     margin: 0 8px;

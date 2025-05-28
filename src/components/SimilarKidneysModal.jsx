@@ -1,8 +1,29 @@
+/**
+ * SimilarKidneysModal Component
+ * 
+ * This component displays a modal with detailed information about kidneys that are similar
+ * to a selected kidney. It provides multiple visualizations and comparison tools to help users
+ * understand why specific kidneys were accepted or rejected based on similarity metrics.
+ * 
+ * Features:
+ * - Summary view with acceptance statistics
+ * - UMAP visualization for dimensional reduction and spatial representation
+ * - T-SNE visualization as an alternative dimensionality reduction technique
+ * - Interactive filtering and comparison of important features
+ * - Detailed tabular comparison of all feature values
+ */
 import React, { useEffect, useRef, useState } from 'react';
 import UmapVisualization from './UmapVisualization';
 import './SimilarKidneysModal.css';
 import TSNE from 'tsne-js';
 
+/**
+ * Important features mapping by city
+ * 
+ * This object defines the most significant features for each city/region that should be used
+ * when calculating similarity between kidneys. Features are ordered by importance.
+ * These were likely determined through statistical analysis of historical data.
+ */
 const importantFeaturesMap = {
   'Baltimore': [
     'PTR_SEQUENCE_NUM', 'CREAT_DON', 'DAYSQAIT_ALLOC', 'time_on_analysis', 'KDPI', 
@@ -24,6 +45,20 @@ const importantFeaturesMap = {
   ]
 };
 
+/**
+ * SimilarKidneysModal component props:
+ * 
+ * @param {boolean} show - Controls visibility of the modal
+ * @param {function} onClose - Callback function to close the modal
+ * @param {object} selectedRecord - The kidney record that was selected for comparison
+ * @param {string} selectedModel - The model used to generate predictions
+ * @param {array} similarKidneys - Array of kidneys similar to the selected record
+ * @param {boolean} loadingReference - Indicates if reference data is currently loading
+ * @param {string} referenceError - Error message if reference data loading failed
+ * @param {object} importantFeatures - Features to prioritize in similarity calculations
+ * @param {function} getCityFromModelName - Function to extract city name from model name
+ * @param {string} city - The city/region associated with the selected model
+ */
 const SimilarKidneysModal = ({ 
   show, 
   onClose, 
@@ -36,17 +71,30 @@ const SimilarKidneysModal = ({
   getCityFromModelName,
   city
 }) => {
+  // Reference to the modal container for click-outside detection
   const modalRef = useRef(null);
+  
+  // State to track which tab is currently active
   const [activeTab, setActiveTab] = useState('summary');
+  
+  // UMAP visualization states
   const [umapImage, setUmapImage] = useState(null);
   const [isLoadingUmap, setIsLoadingUmap] = useState(false);
   const [umapError, setUmapError] = useState(null);
+  
+  // Canvas reference for drawing visualizations
   const canvasRef = useRef(null);
+  
+  // Interaction states for the visualization
   const [hoveredKidney, setHoveredKidney] = useState(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [circleRadius, setCircleRadius] = useState(50);
   const [isDraggingRadius, setIsDraggingRadius] = useState(false);
+  
+  // Statistics for kidneys within the visualization circle
   const [acceptanceStats, setAcceptanceStats] = useState({ accepted: 0, rejected: 0, total: 0, rate: 0 });
+  
+  // Visualization filter states
   const [maskOutsideCircle, setMaskOutsideCircle] = useState(false);
   const [topKidneysCount, setTopKidneysCount] = useState(10);
   const [showFilterTooltip, setShowFilterTooltip] = useState(false);
@@ -584,7 +632,12 @@ const SimilarKidneysModal = ({
     }
   };
 
-  // Add these mouse event handlers for the circle radius adjustment
+  /**
+   * Effect hook to handle mouse interactions with the UMAP visualization
+   * Sets up event listeners for dragging the circle radius handle,
+   * hovering over kidney points, clicking the mask toggle button,
+   * and updating statistics based on these interactions.
+   */
   useEffect(() => {
     if (!canvasRef.current || !show || activeTab !== 'umap') return;
     
@@ -592,6 +645,12 @@ const SimilarKidneysModal = ({
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     
+    /**
+     * Handles mouse down events on the canvas
+     * Checks for clicks on the mask toggle button or the circle resize handle
+     * 
+     * @param {MouseEvent} event - The mouse down event
+     */
     const handleMouseDown = (event) => {
       const rect = canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
@@ -620,6 +679,13 @@ const SimilarKidneysModal = ({
       }
     };
     
+    /**
+     * Handles mouse movement over the canvas
+     * Updates mouse position for tooltips, manages circle resizing,
+     * and detects hover over kidney points
+     * 
+     * @param {MouseEvent} event - The mouse move event
+     */
     const handleMouseMove = (event) => {
       const rect = canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
@@ -667,6 +733,12 @@ const SimilarKidneysModal = ({
       }
     };
     
+    /**
+     * Handles mouse up events
+     * Finalizes circle resizing operations and updates statistics
+     * 
+     * @param {MouseEvent} event - The mouse up event
+     */
     const handleMouseUp = () => {
       if (isDraggingRadius) {
         setIsDraggingRadius(false);
@@ -676,6 +748,12 @@ const SimilarKidneysModal = ({
       }
     };
     
+    /**
+     * Handles mouse leaving the canvas
+     * Resets drag and hover states
+     * 
+     * @param {MouseEvent} event - The mouse leave event
+     */
     const handleMouseLeave = () => {
       setIsDraggingRadius(false);
       setHoveredKidney(null);
@@ -699,7 +777,13 @@ const SimilarKidneysModal = ({
     };
   }, [show, activeTab, similarKidneys, hoveredKidney, circleRadius, isDraggingRadius, maskOutsideCircle, showNearestRejected]);
 
-  // Add this function to calculate stats for kidneys within the circle
+  /**
+   * Calculates acceptance statistics for kidneys within the circle
+   * Counts accepted and rejected kidneys, and calculates the acceptance rate
+   * 
+   * @param {number} radius - The radius of the filtering circle in pixels
+   * @returns {object} - Object containing acceptance statistics: {accepted, rejected, total, rate}
+   */
   const calculateAcceptanceStats = (radius) => {
     const centerX = canvasRef.current?.width / 2 || 350;
     const centerY = canvasRef.current?.height / 2 || 250;
@@ -729,7 +813,13 @@ const SimilarKidneysModal = ({
     return { accepted, rejected, total, rate };
   };
 
-  // Add this function to convert pixel radius to normalized distance
+  /**
+   * Converts pixel radius on the visualization to normalized distance
+   * This helps users understand the actual similarity threshold represented by the circle
+   * 
+   * @param {number} pixelRadius - The radius in pixels
+   * @returns {number} - The normalized distance value that corresponds to the pixel radius
+   */
   const pixelRadiusToNormalizedDistance = (pixelRadius) => {
     // Find max distance to normalize
     const maxDistance = Math.max(...similarKidneys.map(k => k.distance || 0));
@@ -741,12 +831,19 @@ const SimilarKidneysModal = ({
     return normalizedRadius;
   };
 
-  // Add this function to standardize features based on 5% and 95% percentiles
+  /**
+   * Standardizes feature values across kidneys to make them comparable
+   * Uses percentile-based normalization (30%-70%) to handle outliers better than min/max
+   * 
+   * @param {Array} kidneys - Array of kidney objects to standardize
+   * @param {Array} features - Array of feature names to standardize
+   * @returns {Array} - New array of kidneys with standardized feature values
+   */
   const standardizeFeatures = (kidneys, features) => {
     // Create a copy of the kidneys array to avoid modifying the original
     const standardizedKidneys = JSON.parse(JSON.stringify(kidneys));
     
-    // Calculate 5% and 95% percentiles for each feature
+    // Calculate 30% and 70% percentiles for each feature
     const percentiles = {};
     features.forEach(feature => {
       // Extract all values for this feature
@@ -757,7 +854,7 @@ const SimilarKidneysModal = ({
       // Sort values to calculate percentiles
       values.sort((a, b) => a - b);
       
-      // Calculate 5% and 95% percentiles
+      // Calculate 30% and 70% percentiles
       const p5Index = Math.floor(values.length * 0.30);
       const p95Index = Math.floor(values.length * 0.70);
       
@@ -777,7 +874,7 @@ const SimilarKidneysModal = ({
         const rawValue = parseFloat(kidney.record[feature]);
         
         if (!isNaN(rawValue) && percentiles[feature].range > 0) {
-          // Standardize based on 5% and 95% percentiles
+          // Standardize based on 30% and 70% percentiles
           const standardizedValue = (rawValue - percentiles[feature].p5) / percentiles[feature].range;
           
           // Clip values to [0, 1] range
@@ -792,7 +889,15 @@ const SimilarKidneysModal = ({
     return standardizedKidneys;
   };
 
-  // Modify the findSimilarKidneys function to use standardized values
+  /**
+   * Finds similar kidneys using standardized Euclidean distance
+   * 
+   * @param {Object} uploadedKidney - The kidney to find similar matches for
+   * @param {Array} allKidneys - Array of potential kidney matches
+   * @param {Array} features - The features to use for similarity calculation
+   * @param {number} numSimilar - Number of similar kidneys to return
+   * @returns {Array} - Sorted array of similar kidneys with distance scores
+   */
   const findSimilarKidneys = (uploadedKidney, allKidneys, features, numSimilar = 7) => {
     // Standardize all kidneys including the uploaded one
     const standardizedKidneys = standardizeFeatures([uploadedKidney, ...allKidneys], features);
@@ -825,7 +930,10 @@ const SimilarKidneysModal = ({
       .slice(0, numSimilar);
   };
 
-  // Update your data fetching function to calculate both
+  /**
+   * Fetches and processes similar kidneys data from backend services
+   * This is a placeholder function showing the typical workflow
+   */
   const fetchSimilarKidneys = async () => {
     try {
       // Your existing code to fetch data
@@ -839,14 +947,20 @@ const SimilarKidneysModal = ({
     }
   };
 
-  // Reset to first tab when modal opens
+  /**
+   * Resets to first tab when modal opens
+   */
   useEffect(() => {
     if (show) {
       setActiveTab('summary');
     }
   }, [show]);
 
-  // Add this function to handle slider changes
+  /**
+   * Handles changes to the slider for filtering top similar kidneys
+   * 
+   * @param {Event} e - The change event from the slider input
+   */
   const handleTopKidneysChange = (e) => {
     const value = parseInt(e.target.value, 10);
     const maxKidneys = similarKidneys ? similarKidneys.length : 10;
@@ -854,7 +968,11 @@ const SimilarKidneysModal = ({
     setTopKidneysCount(Math.max(1, Math.min(maxKidneys, value || 10)));
   };
 
-  // Create a combined list of all important features from all cities
+  /**
+   * Combines important features from all cities into a single deduplicated list
+   * 
+   * @returns {Array} - Combined list of all unique important features
+   */
   const getAllImportantFeatures = () => {
     // Create a Set to automatically remove duplicates
     const allFeaturesSet = new Set();
@@ -872,7 +990,11 @@ const SimilarKidneysModal = ({
   const allImportantFeatures = getAllImportantFeatures();
   console.log("Combined important features:", allImportantFeatures);
 
-  // Update the getFeaturesToDisplay function to use the combined list
+  /**
+   * Filters the combined feature list to only include features present in the data
+   * 
+   * @returns {Array} - List of features available in the current dataset
+   */
   const getFeaturesToDisplay = () => {
     // If we have similarKidneys, filter the combined list to only include features that exist
     if (similarKidneys && similarKidneys.length > 0) {
@@ -885,14 +1007,24 @@ const SimilarKidneysModal = ({
     return allImportantFeatures;
   };
 
-  // Add these helper functions for color coding
-
-  // Function to determine if a value is numeric
+  /**
+   * Determines if a value is numeric for comparison purposes
+   * 
+   * @param {*} value - The value to check
+   * @returns {boolean} - True if the value is numeric
+   */
   const isNumeric = (value) => {
     return !isNaN(parseFloat(value)) && isFinite(value);
   };
 
-  // Function to calculate normalized difference between two values
+  /**
+   * Calculates normalized difference between two feature values
+   * Handles both numeric and categorical values appropriately
+   * 
+   * @param {*} value1 - First value to compare
+   * @param {*} value2 - Second value to compare
+   * @returns {number|null} - Normalized difference (0-1) or null if comparison isn't possible
+   */
   const calculateDifference = (value1, value2) => {
     // Handle NA values
     if (value1 === 'N/A' || value2 === 'N/A' || value1 === undefined || value2 === undefined) {
@@ -919,7 +1051,13 @@ const SimilarKidneysModal = ({
     return value1 === value2 ? 0 : 1;
   };
 
-  // Function to get background color based on difference
+  /**
+   * Determines background color intensity based on difference between values
+   * Used for visual comparison in the features table
+   * 
+   * @param {number|null} difference - Normalized difference value (0-1) or null
+   * @returns {string} - CSS color string with appropriate opacity
+   */
   const getBackgroundColor = (difference) => {
     // If difference is null, return transparent (no coloring)
     if (difference === null) return 'transparent';
@@ -932,7 +1070,11 @@ const SimilarKidneysModal = ({
     return `rgba(59, 130, 246, ${1 - intensity})`;
   };
 
-  // First, prepare a list of the 10 nearest rejected kidneys
+  /**
+   * Retrieves the 10 nearest rejected kidneys for visualization and comparison
+   * 
+   * @returns {Array} - List of the 10 closest rejected kidneys
+   */
   const getNearestRejectedKidneys = () => {
     // Create a list of rejected kidneys
     const rejectedKidneys = similarKidneys.filter(
@@ -955,7 +1097,12 @@ const SimilarKidneysModal = ({
 
   console.log("Nearest rejected IDs:", nearestRejectedIds);
 
-  // Add this function to your component, outside of drawUmapVisualization
+  /**
+   * Determines if a kidney should be displayed based on current filter settings
+   * 
+   * @param {Object} kidney - The kidney record to check
+   * @returns {boolean} - True if the kidney should be shown
+   */
   const shouldShowKidney = (kidney) => {
     const isAccepted = kidney.record.OFFER_ACCEPT === '1' || kidney.record.OFFER_ACCEPT === 1;
     
@@ -1472,7 +1619,10 @@ const SimilarKidneysModal = ({
     }
   }, [activeTab, show, selectedRecord, similarKidneys, tsneData, isLoadingTsne]);
 
-  // Add this useEffect to clear the canvas when switching tabs
+  /**
+   * Effect hook to clear the canvas when switching between tabs
+   * Ensures no visualization artifacts remain when changing views
+   */
   useEffect(() => {
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext('2d');
@@ -1482,35 +1632,43 @@ const SimilarKidneysModal = ({
     }
   }, [activeTab]);
 
+  // Don't render anything if modal is not visible
   if (!show) return null;
 
   return (
     <div className="modal-overlay">
+      {/* Main modal container with ref for click-outside detection */}
       <div className="similar-modal" ref={modalRef}>
+        {/* Modal header with title and close button */}
         <div className="modal-header">
           <h2>Similar Kidneys Analysis</h2>
           <button className="close-btn" onClick={onClose}>×</button>
         </div>
         
+        {/* Tab navigation bar */}
         <div className="modal-tabs">
+          {/* Summary tab button - shows acceptance rate statistics */}
           <button 
             className={`tab-btn ${activeTab === 'summary' ? 'active' : ''}`}
             onClick={() => setActiveTab('summary')}
           >
             Summary
           </button>
+          {/* UMAP visualization tab button - shows 2D projection of kidney data */}
           <button 
             className={`tab-btn ${activeTab === 'umap' ? 'active' : ''}`}
             onClick={() => setActiveTab('umap')}
           >
             UMAP Visualization
           </button>
+          {/* All Features tab button - shows detailed feature comparison table */}
           <button 
             className={`tab-btn ${activeTab === 'all-features' ? 'active' : ''}`}
             onClick={() => setActiveTab('all-features')}
           >
             All Features
           </button>
+          {/* T-SNE tab button - alternative visualization technique */}
           <button 
             className={`tab-btn ${activeTab === 'tsne' ? 'active' : ''}`}
             onClick={() => setActiveTab('tsne')}
@@ -1519,7 +1677,9 @@ const SimilarKidneysModal = ({
           </button>
         </div>
         
+        {/* Modal content area - changes based on active tab */}
         <div className="modal-content">
+          {/* Loading indicator displayed while fetching reference data */}
           {loadingReference && (
             <div className="loading-indicator">
               <div className="spinner"></div>
@@ -1527,6 +1687,7 @@ const SimilarKidneysModal = ({
             </div>
           )}
           
+          {/* Error message displayed if reference data fails to load */}
           {referenceError && (
             <div className="error-message">
               <i className="fas fa-exclamation-circle"></i>
@@ -1537,11 +1698,13 @@ const SimilarKidneysModal = ({
             </div>
           )}
           
+          {/* Content only displayed when data is loaded successfully */}
           {!loadingReference && !referenceError && (
             <>
-              {/* Summary Tab */}
+              {/* SUMMARY TAB CONTENT */}
               {activeTab === 'summary' && (
                 <div className="tab-content">
+                  {/* Card displaying key metrics for the currently selected kidney */}
                   {selectedRecord && (
                     <div className="current-kidney-card">
                       <div className="card-header">
@@ -1549,14 +1712,17 @@ const SimilarKidneysModal = ({
                       </div>
                       <div className="card-content">
                         <div className="kidney-metrics">
+                          {/* KDPI metric - Kidney Donor Profile Index - key predictor of graft failure */}
                           <div className="metric">
                             <div className="metric-value">{getValueCaseInsensitive(selectedRecord, 'KDPI') || 'N/A'}</div>
                             <div className="metric-label">KDPI</div>
                           </div>
+                          {/* Donor age metric - important clinical factor */}
                           <div className="metric">
                             <div className="metric-value">{getValueCaseInsensitive(selectedRecord, 'AGE_DON') || 'N/A'}</div>
                             <div className="metric-label">Donor Age</div>
                           </div>
+                          {/* Creatinine metric - kidney function indicator */}
                           <div className="metric">
                             <div className="metric-value">{getValueCaseInsensitive(selectedRecord, 'CREAT_DON') || 'N/A'}</div>
                             <div className="metric-label">Creatinine</div>
@@ -1566,14 +1732,18 @@ const SimilarKidneysModal = ({
                     </div>
                   )}
                   
+                  {/* Results container for similar kidneys data */}
                   {similarKidneys.length > 0 ? (
                     <div className="results-container">
+                      {/* Card showing acceptance rate summary with visual gauge */}
                       <div className="summary-card">
                         <div className="summary-header">
                           <h3>Acceptance Summary</h3>
                         </div>
                         <div className="summary-content">
+                          {/* Circular gauge visualization of acceptance rate */}
                           <div className="acceptance-gauge">
+                            {/* Dynamic conic gradient creates pie chart effect */}
                             <div className="gauge-value" style={{ 
                               background: `conic-gradient(
                                 ${acceptanceRate >= 70 ? '#4CAF50' : acceptanceRate >= 30 ? '#FF9800' : '#F44336'} 
@@ -1581,6 +1751,7 @@ const SimilarKidneysModal = ({
                                 #e0e0e0 ${acceptanceRate * 3.6}deg 360deg
                               )` 
                             }}>
+                              {/* Center of gauge showing percentage */}
                               <div className="gauge-center">
                                 <span>{Math.round(acceptanceRate)}%</span>
                               </div>
@@ -1588,15 +1759,19 @@ const SimilarKidneysModal = ({
                             <div className="gauge-label">Acceptance Rate</div>
                           </div>
                           
+                          {/* Detailed acceptance statistics */}
                           <div className="acceptance-stats">
+                            {/* Count of accepted kidneys */}
                             <div className="stat">
                               <div className="stat-value">{acceptedCount}</div>
                               <div className="stat-label">Accepted</div>
                             </div>
+                            {/* Count of rejected kidneys */}
                             <div className="stat">
                               <div className="stat-value">{similarKidneys.length - acceptedCount}</div>
                               <div className="stat-label">Rejected</div>
                             </div>
+                            {/* Total number of similar kidneys */}
                             <div className="stat">
                               <div className="stat-value">{similarKidneys.length}</div>
                               <div className="stat-label">Total</div>
@@ -1605,6 +1780,7 @@ const SimilarKidneysModal = ({
                         </div>
                       </div>
                       
+                      {/* Card showing table of similar kidneys with key metrics */}
                       <div className="similar-kidneys-card">
                         <div className="card-header">
                           <h3>Similar Kidneys</h3>
@@ -1621,12 +1797,14 @@ const SimilarKidneysModal = ({
                                 </tr>
                               </thead>
                               <tbody>
+                                {/* Map over similar kidneys to create table rows */}
                                 {similarKidneys.map((item, index) => (
                                   <tr key={index} className={item.record.OFFER_ACCEPT === '1' || item.record.OFFER_ACCEPT === 1 ? 'accepted' : 'rejected'}>
                                     <td>{getValueCaseInsensitive(item.record, 'KDPI') || 'N/A'}</td>
                                     <td>{getValueCaseInsensitive(item.record, 'AGE_DON') || 'N/A'}</td>
                                     <td>{getValueCaseInsensitive(item.record, 'CREAT_DON') || 'N/A'}</td>
                                     <td>
+                                      {/* Outcome badge with color coding based on acceptance status */}
                                       <span className={`outcome-badge ${item.record.OFFER_ACCEPT === '1' || item.record.OFFER_ACCEPT === 1 ? 'success' : 'failure'}`}>
                                         {item.record.OFFER_ACCEPT === '1' || item.record.OFFER_ACCEPT === 1 ? 'Accepted' : 'Rejected'}
                                       </span>
@@ -1640,6 +1818,7 @@ const SimilarKidneysModal = ({
                       </div>
                     </div>
                   ) : !loadingReference && !referenceError && (
+                    // Display when no similar kidneys are found
                     <div className="no-results">
                       <div className="no-results-icon">
                         <i className="fas fa-search"></i>
@@ -1651,10 +1830,12 @@ const SimilarKidneysModal = ({
                 </div>
               )}
               
-              {/* UMAP Tab */}
+              {/* UMAP VISUALIZATION TAB CONTENT */}
               {activeTab === 'umap' && (
                 <div className="umap-tab">
+                  {/* Filter controls for the UMAP visualization */}
                   <div className="umap-filter-controls">
+                    {/* Toggle button to show only accepted kidneys or all kidneys */}
                     <button 
                       className={`filter-button ${showOnlyAccepted ? 'active' : ''}`}
                       onClick={() => setShowOnlyAccepted(!showOnlyAccepted)}
@@ -1662,6 +1843,7 @@ const SimilarKidneysModal = ({
                       {showOnlyAccepted ? 'Show All Kidneys' : 'Show Only Accepted'}
                     </button>
                     
+                    {/* Toggle button to show/hide the 10 nearest rejected kidneys */}
                     <button 
                       className={`filter-button ${showNearestRejected ? 'active' : ''}`}
                       onClick={() => setShowNearestRejected(!showNearestRejected)}
@@ -1670,12 +1852,15 @@ const SimilarKidneysModal = ({
                     </button>
                   </div>
                   
+                  {/* Canvas container for the UMAP visualization */}
                   <div className="canvas-container">
+                    {/* Canvas element where the visualization is drawn */}
                     <canvas 
                       ref={canvasRef} 
                       width="900" 
                       height="700"
                     />
+                    {/* Message shown when no data is available for visualization */}
                     {(!similarKidneys || similarKidneys.length === 0) && (
                       <div className="no-data-message">
                         <p>No similar kidneys data available for visualization</p>
@@ -1685,12 +1870,14 @@ const SimilarKidneysModal = ({
                 </div>
               )}
               
-              {/* All Features Tab */}
+              {/* ALL FEATURES TAB CONTENT */}
               {activeTab === 'all-features' && (
                 <div className="tab-content">
+                  {/* Controls for filtering the features table */}
                   <div className="filter-controls">
                     <div className="filter-header">
                       <h4>Filter Similar Kidneys</h4>
+                      {/* Information tooltip to explain the filter functionality */}
                       <div className="info-tooltip-container">
                         <button 
                           className="info-button"
@@ -1699,6 +1886,7 @@ const SimilarKidneysModal = ({
                         >
                           <i className="fas fa-info-circle"></i>
                         </button>
+                        {/* Tooltip content that appears on hover */}
                         {showFilterTooltip && (
                           <div className="tooltip">
                             Adjust the slider to show more or fewer similar kidneys.
@@ -1708,6 +1896,7 @@ const SimilarKidneysModal = ({
                       </div>
                     </div>
                     
+                    {/* Slider control to adjust how many similar kidneys are displayed */}
                     <div className="slider-container">
                       <span className="slider-label">Show top</span>
                       <div className="slider-with-value">
@@ -1734,21 +1923,26 @@ const SimilarKidneysModal = ({
                     </div>
                   </div>
                   
+                  {/* Color legend explaining the color-coding in the features table */}
                   <div className="color-legend">
                     <div className="legend-title">Color Legend:</div>
                     <div className="legend-items">
+                      {/* Very similar values - dark blue */}
                       <div className="legend-item">
                         <div className="color-sample" style={{ backgroundColor: 'rgba(59, 130, 246, 1)' }}></div>
                         <span>Very Similar</span>
                       </div>
+                      {/* Somewhat similar values - medium blue */}
                       <div className="legend-item">
                         <div className="color-sample" style={{ backgroundColor: 'rgba(59, 130, 246, 0.6)' }}></div>
                         <span>Somewhat Similar</span>
                       </div>
+                      {/* Less similar values - light blue */}
                       <div className="legend-item">
                         <div className="color-sample" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)' }}></div>
                         <span>Less Similar</span>
                       </div>
+                      {/* N/A or missing values - transparent */}
                       <div className="legend-item">
                         <div className="color-sample" style={{ backgroundColor: 'transparent', border: '1px solid #e2e8f0' }}></div>
                         <span>N/A</span>
@@ -1756,20 +1950,23 @@ const SimilarKidneysModal = ({
                     </div>
                   </div>
                   
+                  {/* Table container for the detailed features comparison */}
                   <div className="features-table-container">
                     <table className="features-table">
                       <thead>
                         <tr className="features-header-row">
+                          {/* Fixed column headers */}
                           <th className="kidney-column">Kidney</th>
                           <th className="distance-column">Distance</th>
                           <th className="outcome-column">Outcome</th>
+                          {/* Dynamic column headers for each feature */}
                           {getFeaturesToDisplay().map((feature, idx) => (
                             <th key={idx} className="feature-column">{feature}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {/* Always show the original kidney first */}
+                        {/* Always show the original kidney first as a reference */}
                         {selectedRecord && (
                           <tr className="original-kidney-row">
                             <td className="kidney-column">
@@ -1777,6 +1974,7 @@ const SimilarKidneysModal = ({
                             </td>
                             <td className="distance-column">-</td>
                             <td className="outcome-column">-</td>
+                            {/* Show all feature values for the current kidney */}
                             {getFeaturesToDisplay().map((feature, idx) => (
                               <td 
                                 key={idx} 
@@ -1794,7 +1992,7 @@ const SimilarKidneysModal = ({
                           .slice(0, topKidneysCount)
                           .map((kidney, idx) => {
                             if (!shouldShowKidney(kidney)) {
-                              return null; // Skip this kidney
+                              return null; // Skip kidneys that don't meet filter criteria
                             }
                             return (
                               <tr 
@@ -1812,6 +2010,7 @@ const SimilarKidneysModal = ({
                                     {kidney.record.OFFER_ACCEPT === '1' || kidney.record.OFFER_ACCEPT === 1 ? 'Accepted' : 'Rejected'}
                                   </span>
                                 </td>
+                                {/* Show all feature values with color-coding based on similarity */}
                                 {getFeaturesToDisplay().map((feature, featureIdx) => {
                                   // Get current kidney's value for this feature
                                   const currentValue = selectedRecord ? (selectedRecord[feature] || 'N/A') : 'N/A';
@@ -1819,10 +2018,10 @@ const SimilarKidneysModal = ({
                                   // Get this kidney's value
                                   const kidneyValue = kidney.record[feature] || 'N/A';
                                   
-                                  // Calculate difference
+                                  // Calculate difference to determine color intensity
                                   const difference = calculateDifference(currentValue, kidneyValue);
                                   
-                                  // Get background color
+                                  // Get background color based on difference
                                   const backgroundColor = getBackgroundColor(difference);
                                   
                                   return (
@@ -1844,8 +2043,10 @@ const SimilarKidneysModal = ({
                 </div>
               )}
 
+              {/* T-SNE VISUALIZATION TAB CONTENT */}
               {activeTab === 'tsne' && (
                 <div className="tsne-tab">
+                  {/* Filter controls for the T-SNE visualization, same as UMAP */}
                   <div className="umap-filter-controls">
                     <button 
                       className={`filter-button ${showOnlyAccepted ? 'active' : ''}`}
@@ -1861,6 +2062,7 @@ const SimilarKidneysModal = ({
                       {showNearestRejected ? 'Hide Nearest Rejected' : 'Show 10 Nearest Rejected'}
                     </button>
                     
+                    {/* Information about how many rejected kidneys are shown */}
                     {showNearestRejected && (
                       <span className="filter-info">
                         Showing {nearestRejectedIds.length} nearest rejected kidneys
@@ -1868,13 +2070,16 @@ const SimilarKidneysModal = ({
                     )}
                   </div>
                   
+                  {/* Canvas container for the T-SNE visualization */}
                   <div className="canvas-container">
+                    {/* Show loading spinner while T-SNE is being calculated */}
                     {isLoadingTsne ? (
                       <div className="loading-container">
                         <div className="loading-spinner"></div>
                         <p>Generating T-SNE visualization...</p>
                       </div>
                     ) : tsneError ? (
+                      /* Show error message if T-SNE calculation failed */
                       <div className="error-container">
                         <p className="error-message">{tsneError}</p>
                         <button onClick={generateTsne} className="retry-button">
@@ -1882,6 +2087,7 @@ const SimilarKidneysModal = ({
                         </button>
                       </div>
                     ) : (
+                      /* Canvas for T-SNE visualization with mouse event handlers */
                       <canvas 
                         ref={canvasRef}
                         onMouseMove={handleCanvasMouseMove}
