@@ -2,12 +2,12 @@
   "version": 2,
   "builds": [
     { "src": "api/*.js", "use": "@vercel/node" },
-    { "src": "public/**/*", "use": "@vercel/static" }
+    { "src": "dist/**/*", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/api/tsne/(.*)", "dest": "/api/python.js" },
     { "src": "/api/(.*)", "dest": "/api/index.js" },
-    { "src": "/(.*)", "dest": "/public/$1" }
+    { "src": "/(.*)", "dest": "/dist/$1" }
   ],
   "env": {
     "NODE_ENV": "production"

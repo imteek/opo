@@ -1,13 +1,16 @@
 // This is a Vercel serverless function that will proxy requests to your Express app
-const { createServer } = require('http');
-const { parse } = require('url');
-const next = require('next');
+const express = require('express');
+const cors = require('cors');
 
-// Import your Express app
-const expressApp = require('../backend/server');
+// Import the routes from your Express app
+const server = require('../backend/server');
 
-// Create a handler for Vercel
-module.exports = (req, res) => {
-  // Pass the request to your Express app
-  return expressApp(req, res);
-}; 
+// Create a minimal Express app for Vercel
+const app = express();
+app.use(cors());
+
+// Use the routes from your server
+app.use('/', server);
+
+// Export the Express API
+module.exports = app; 
