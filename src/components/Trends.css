@@ -1,0 +1,400 @@
+/* Modern and Professional Trends Page Styling */
+.trends-container {
+  padding: 30px;
+  max-width: 1400px;
+  margin: 0 auto;
+  color: #2c3e50;
+  font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Header Styling */
+.trends-header {
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+.trends-title {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #2c3e50;
+  letter-spacing: -0.5px;
+}
+
+.trends-subtitle {
+  font-size: 16px;
+  color: #7f8c8d;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* City Tabs */
+.city-tabs-container {
+  margin-bottom: 40px;
+  display: flex;
+  justify-content: center;
+}
+
+.city-tabs {
+  display: flex;
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.city-tab {
+  background: none;
+  border: none;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #7f8c8d;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.city-tab i {
+  font-size: 14px;
+}
+
+.city-tab:hover {
+  color: #3498db;
+  background-color: rgba(52, 152, 219, 0.05);
+}
+
+.city-tab.active {
+  color: #3498db;
+  background-color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Main Content Area - Adjust height to be slightly less tall */
+.trends-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+/* Image Showcase */
+.image-showcase {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  background-color: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-container {
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-container.transitioning {
+  opacity: 0.7;
+}
+
+.image-container img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.image-overlay {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Navigation Arrows */
+.nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #2c3e50;
+  font-size: 18px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.nav-arrow:hover {
+  background-color: white;
+  transform: translateY(-50%) scale(1.05);
+}
+
+.nav-arrow.prev {
+  left: 20px;
+}
+
+.nav-arrow.next {
+  right: 20px;
+}
+
+/* Image Info - Make it same height as image showcase */
+.image-info {
+  background-color: white;
+  border-radius: 12px;
+  padding: 25px 30px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Fill the available height */
+}
+
+/* Adjust content within image-info for better vertical spacing */
+.image-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #2c3e50;
+}
+
+.image-description {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #34495e;
+  margin-bottom: 20px;
+  flex-grow: 1; /* Allow description to take available space */
+}
+
+.image-indicators {
+  margin-top: auto; /* Push indicators to bottom */
+  padding-top: 20px;
+}
+
+/* Image Indicators */
+.image-indicators {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0;
+}
+
+.indicator.active {
+  background-color: #3498db;
+  transform: scale(1.2);
+}
+
+/* Thumbnail Gallery - Align with full width of content area */
+.thumbnail-gallery {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  margin-top: 20px;
+  width: 100%; /* Ensure full width */
+  max-width: 100%; /* Prevent overflow */
+}
+
+/* Container for both content and thumbnails to ensure alignment */
+.trends-container {
+  padding: 30px;
+  max-width: 1400px;
+  margin: 0 auto;
+  color: #2c3e50;
+  font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Ensure thumbnails stretch properly */
+.thumbnail {
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  height: 90px; /* Slightly reduced from 100px */
+  width: 100%; /* Ensure full width within grid cell */
+}
+
+.thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s ease;
+}
+
+.thumbnail-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+  padding: 15px 10px 10px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.thumbnail-title {
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.thumbnail:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.thumbnail:hover img {
+  transform: scale(1.05);
+}
+
+.thumbnail:hover .thumbnail-overlay {
+  opacity: 1;
+}
+
+.thumbnail.active {
+  border: 3px solid #3498db;
+  transform: translateY(-5px);
+}
+
+/* Data Source */
+.data-source {
+  text-align: center;
+  font-size: 14px;
+  color: #95a5a6;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #ecf0f1;
+}
+
+/* Responsive adjustments for slightly less tall content */
+@media (min-width: 992px) {
+  .trends-content {
+    grid-template-columns: 3fr 2fr;
+    align-items: stretch;
+    height: 600px; /* Reduced from 700px to make it less tall */
+  }
+  
+  .image-showcase {
+    height: 100%;
+    max-height: none;
+  }
+  
+  .image-info {
+    height: 100%;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 992px) {
+  .image-showcase {
+    aspect-ratio: 16 / 10;
+  }
+}
+
+@media (max-width: 768px) {
+  .thumbnail-gallery {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .city-tab {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+  
+  .trends-title {
+    font-size: 28px;
+  }
+  
+  .nav-arrow {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 576px) {
+  .trends-container {
+    padding: 20px 15px;
+  }
+  
+  .city-tabs {
+    width: 100%;
+  }
+  
+  .city-tab {
+    flex: 1;
+    padding: 10px;
+    justify-content: center;
+  }
+  
+  .city-tab span {
+    display: none;
+  }
+  
+  .city-tab i {
+    font-size: 16px;
+    margin: 0;
+  }
+  
+  .image-title {
+    font-size: 20px;
+  }
+  
+  .image-info {
+    padding: 20px;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.trends-container {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Add a wrapper for the thumbnail gallery to control alignment */
+@media (min-width: 992px) {
+  .thumbnail-gallery {
+    padding: 0; /* Remove any padding */
+    margin-left: 0; /* Align with left edge */
+    margin-right: 0; /* Align with right edge */
+  }
+} 

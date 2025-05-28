@@ -1,0 +1,26 @@
+.view-all-btn, .collapse-btn {
+  background: none;
+  border: none;
+  color: #3498db;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 5px 10px;
+  display: inline-flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+
+.view-all-btn:hover, .collapse-btn:hover {
+  color: #2980b9;
+  text-decoration: underline;
+}
+
+.view-all-btn i, .collapse-btn i {
+  margin-right: 5px;
+}
+
+.more-results {
+  text-align: center;
+  padding: 10px;
+  background-color: #f8f9fa;
+} 
